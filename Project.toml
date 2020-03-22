@@ -1,0 +1,4 @@
+name = "OpenStreetMapIO"
+uuid = "005c2571-dbef-4654-b731-b11a1a12058a"
+authors = ["jrklasen "]
+version = "0.1.0"
