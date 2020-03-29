@@ -48,30 +48,28 @@ function readpbf(file::String, nodecallback=nodecallback, waycallback=waycallbac
             DomainError("blob reports wrong raw_size: $(blob.raw_size) bytes")
         end
 
-
         if blobheader._type == "OSMData"
             primitiveblock = readproto(PipeBuffer(blobdata), PrimitiveBlock())
-            # if c == 371
-            #     return primitiveblock
-            # end
-            # c += 1
             # Parse blob data
             # for each primitive group
             for primitivegroup in primitiveblock.primitivegroup
                 if isdefined(primitivegroup, :nodes) && !isempty(primitivegroup.nodes)
                     parsenodes!(nodeoutput, primitiveblock, primitivegroup.nodes, nodecallback)
-                elseif isdefined(primitivegroup, :dense) && !isempty(primitivegroup.dense.id)
+                end
+                if isdefined(primitivegroup, :dense) && !isempty(primitivegroup.dense.id)
                     parsedensenodes!(nodeoutput, primitiveblock, primitivegroup.dense, nodecallback)
-                elseif isdefined(primitivegroup, :ways) && !isempty(primitivegroup.ways)
+                end
+                if isdefined(primitivegroup, :ways) && !isempty(primitivegroup.ways)
                     parseways!(wayoutput, primitiveblock, primitivegroup.ways, waycallback)
-                elseif isdefined(primitivegroup, :rlations) && !isempty(primitivegroup.relations)
+                end
+                if isdefined(primitivegroup, :rlations) && !isempty(primitivegroup.relations)
                     parserelations!(relationoutput, primitiveblock, primitivegroup.relations, relationcallback)
                 end
             end
-        # elseif blobheader._type == "OSMHeader"
-        #
-        # else
-        #     DomainError("Unknown blob type: " * blobheader._type)
+        elseif blobheader._type == "OSMHeader"
+            # TODO: add stuff
+        else
+            DomainError("Unknown blob type: " * blobheader._type)
         end
     end
     
@@ -99,6 +97,7 @@ function parsenodes!(output, primitiveblock, nodes, nodecallback=nodecallback)#,
         # end
     end
 end
+
 
 function parsedensenodes!(output, primitiveblock, densenodes, nodecallback=nodecallback)#, changesetcallback)
     id::Int64 = 0
@@ -200,13 +199,5 @@ function relationcallback(id, tags, members)
     return [id, tags, members]
 end
 
-function hasvalues(field)
-    empty = true
-    try
-        empty = !isempty(field)
-    finally
-        return empty
-    end
-end
 
 end # module
