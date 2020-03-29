@@ -13,40 +13,15 @@ include("proto/osmformat_pb.jl")  # https://github.com/openstreetmap/OSM-binary/
 
 function readpbf(file::String, nodecallback=nodecallback, waycallback=waycallback,relationcallback=relationcallback)
     io = open(file)
-    c = 0
     
     nodeoutput = []
     wayoutput = []
     relationoutput = []
-    while !eof(io)
-        # the first 4 bytes are the header size (in big-endianness)
-        headersize = Int64(reinterpret(UInt32, read!(io, Array{UInt8}(undef, 4))[4:-1:1])[1])
-        if headersize >= MAX_BLOB_HEADER_SIZE
-            DomainError("blob-header-size is bigger than allowed $(headersize) >  $(MAX_BLOB_HEADER_SIZE)")
-        end
 
-        # Read blob header
-        blobheader = readproto(PipeBuffer(read!(io, Array{UInt8}(undef, headersize))), BlobHeader())
-        blobsize = blobheader.datasize
-        if blobsize > MAX_UNCOMPRESSED_BLOB_SIZE
-            DomainError("blob-size is bigger than allowed $(blobsize) > $(MAX_UNCOMPRESSED_BLOB_SIZE)")
-        end
-        
-        # Read blob
-        blob = readproto(PipeBuffer(read!(io, Array{UInt8}(undef, blobsize))), Blob())
-        if length(blob.raw) > 0
-            blobdata = blob.raw
-        elseif length(blob.zlib_data)  > 0
-            # decompress if data are zlib compresst
-            blobdata = transcode(GzipDecompressor, blob.zlib_data)
-        elseif length(blob.lzma_data) > 0
-            DomainError("lzma-decompression is not supported")
-        else
-            DomainError("Unsupported blob data format")
-        end
-        if blob.raw_size > length(blobdata)
-            DomainError("blob reports wrong raw_size: $(blob.raw_size) bytes")
-        end
+    while !eof(io)
+        headersize = readheadersize!(io)
+        blobheader = readheder!(io, headersize)
+        blobdata = readblob!(io, blobheader.datasize)
 
         if blobheader._type == "OSMData"
             primitiveblock = readproto(PipeBuffer(blobdata), PrimitiveBlock())
@@ -76,7 +51,53 @@ function readpbf(file::String, nodecallback=nodecallback, waycallback=waycallbac
     return Dict("nodes" => nodeoutput, "ways" =>wayoutput, "relations" => relationoutput)
 end
 
+"""
+Header size
+"""
+function readheadersize!(io)
+    # the first 4 bytes are the header size (in big-endianness)
+    headersize = Int64(reinterpret(UInt32, read!(io, Array{UInt8}(undef, 4))[4:-1:1])[1])
+    if headersize >= MAX_BLOB_HEADER_SIZE
+        DomainError("blob-header-size is bigger than allowed $(headersize) >  $(MAX_BLOB_HEADER_SIZE)")
+    end
+    return headersize
+end 
 
+"""
+Read blob header
+"""
+function readheder!(io, headersize)
+    blobheader = readproto(PipeBuffer(read!(io, Array{UInt8}(undef, headersize))), BlobHeader())
+    return blobheader
+end
+
+"""
+Read blob
+"""
+function readblob!(io, blobsize)
+    if blobsize > MAX_UNCOMPRESSED_BLOB_SIZE
+        DomainError("blob-size is bigger than allowed $(blobsize) > $(MAX_UNCOMPRESSED_BLOB_SIZE)")
+    end
+    blob = readproto(PipeBuffer(read!(io, Array{UInt8}(undef, blobsize))), Blob())
+    if length(blob.raw) > 0
+        blobdata = blob.raw
+    elseif length(blob.zlib_data)  > 0
+        # decompress if data are zlib compresst
+        blobdata = transcode(GzipDecompressor, blob.zlib_data)
+    elseif length(blob.lzma_data) > 0
+        DomainError("lzma-decompression is not supported")
+    else
+        DomainError("Unsupported blob data format")
+    end
+    if blob.raw_size > length(blobdata)
+        DomainError("blob reports wrong raw_size: $(blob.raw_size) bytes")
+    end
+    return blobdata
+end
+
+"""
+Parse nodes
+"""
 function parsenodes!(output, primitiveblock, nodes, nodecallback=nodecallback)#, changesetcallback)
     for node in nodes
         lat = 1e-9 * (primitiveblock.lat_offset + primitiveblock.granularity * node.lat)
@@ -98,7 +119,9 @@ function parsenodes!(output, primitiveblock, nodes, nodecallback=nodecallback)#,
     end
 end
 
-
+"""
+Parse nodes (which are stort in a dense fromat)
+"""
 function parsedensenodes!(output, primitiveblock, densenodes, nodecallback=nodecallback)#, changesetcallback)
     id::Int64 = 0
     latitude::Float64 = 0.0
@@ -131,7 +154,9 @@ function parsedensenodes!(output, primitiveblock, densenodes, nodecallback=nodec
     # end
 end
 
-
+"""
+Parse ways
+"""
 function parseways!(output, primitiveblock, ways, waycallback=waycallback)#, changesetcallback)
     for way in ways 
         node = 0
@@ -158,7 +183,9 @@ function parseways!(output, primitiveblock, ways, waycallback=waycallback)#, cha
     end
 end
 
-
+"""
+Parse relations
+"""
 function parserelations!(output, primitiveblock, relations, relationcallback=relationcallback)#, changesetcallback)
     for relation in relations
         member = 0
@@ -198,6 +225,55 @@ end
 function relationcallback(id, tags, members)
     return [id, tags, members]
 end
+
+
+# function decodeOSMHeader(blob *OSMPBF.Blob) error {
+# 	data, err := getData(blob)
+# 	if err != nil {
+# 		return err
+# 	}
+
+# 	headerBlock := new(OSMPBF.HeaderBlock)
+# 	if err := proto.Unmarshal(data, headerBlock); err != nil {
+# 		return err
+# 	}
+
+# 	# Check we have the parse capabilities
+# 	requiredFeatures := headerBlock.GetRequiredFeatures()
+# 	for _, feature := range requiredFeatures {
+# 		if !parseCapabilities[feature] {
+# 			return fmt.Errorf("parser does not have %s capability", feature)
+# 		}
+# 	}
+
+# 	# Read properties to header struct
+# 	header := &Header{
+# 		RequiredFeatures: headerBlock.GetRequiredFeatures(),
+# 		OptionalFeatures: headerBlock.GetOptionalFeatures(),
+# 		WritingProgram:   headerBlock.GetWritingprogram(),
+# 		Source:           headerBlock.GetSource(),
+# 		OsmosisReplicationBaseUrl:        headerBlock.GetOsmosisReplicationBaseUrl(),
+# 		OsmosisReplicationSequenceNumber: headerBlock.GetOsmosisReplicationSequenceNumber(),
+# 	}
+
+# 	// convert timestamp epoch seconds to golang time structure if it exists
+# 	if headerBlock.OsmosisReplicationTimestamp != nil {
+# 		header.OsmosisReplicationTimestamp = time.Unix(*headerBlock.OsmosisReplicationTimestamp, 0)
+# 	}
+# 	// read bounding box if it exists
+# 	if headerBlock.Bbox != nil {
+# 		// Units are always in nanodegree and do not obey granularity rules. See osmformat.proto
+# 		header.BoundingBox = &BoundingBox{
+# 			Left:   1e-9 * float64(*headerBlock.Bbox.Left),
+# 			Right:  1e-9 * float64(*headerBlock.Bbox.Right),
+# 			Bottom: 1e-9 * float64(*headerBlock.Bbox.Bottom),
+# 			Top:    1e-9 * float64(*headerBlock.Bbox.Top),
+# 		}
+# 	}
+
+# 	dec.header = header
+
+# 	return nil
 
 
 end # module
