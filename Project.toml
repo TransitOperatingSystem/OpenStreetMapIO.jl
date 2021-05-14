@@ -1,8 +1,13 @@
 name = "OpenStreetMapIO"
 uuid = "005c2571-dbef-4654-b731-b11a1a12058a"
-authors = ["jrklasen "]
+authors = ["jrklasen"]
 version = "0.1.0"
 
 [deps]
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
