@@ -1,6 +1,12 @@
 
 include("protobuf/OSMPBF.jl")
 
+
+struct LatLon
+    lat::Float64
+    lon::Float64
+end
+
 struct BoundingBox
     bottom_lat::Float64
     left_lon::Float64

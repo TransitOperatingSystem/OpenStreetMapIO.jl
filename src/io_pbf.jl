@@ -1,5 +1,5 @@
 """
-Read OSM data in PBF format. Data-set are available from various sources, e.g. https://download.geofabrik.de/
+Returns OSM data read from a PBF file. Data-set are available from various sources, e.g. https://download.geofabrik.de/
 
 Explanation of the data model can be found here https://wiki.openstreetmap.org/wiki/PBF_Format
 

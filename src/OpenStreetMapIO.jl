@@ -10,6 +10,7 @@ include("osm_types.jl")
 include("io_pbf.jl")
 include("io_xml.jl")
 
-export readpbf, readxml, overpassquery, OpenStreetMapData, OpenStreetMapNodes, BoundingBox
+export readpbf, readosm, queryoverpass
+export OpenStreetMapData, OpenStreetMapNodes, BoundingBox, LatLon
 
 end
