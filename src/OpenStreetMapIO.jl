@@ -6,7 +6,7 @@ using EzXML: nodename, StreamReader, READER_ELEMENT
 using HTTP: request
 using Dates: unix2datetime, DateTime
 
-include("osm_types.jl")
+include("map_types.jl")
 include("io_pbf.jl")
 include("io_xml.jl")
 
