@@ -6,9 +6,9 @@ function readosm(filename::String)
 end
 
 """
-Returns OSM data queried from a overpass using a BoundingBox.
+Returns OSM data queried from a overpass using a `BBox`.
 """
-function queryoverpass(bbox::BoundingBox; kwargs...)
+function queryoverpass(bbox::BBox; kwargs...)
     queryoverpass("$(bbox.bottom_lat),$(bbox.left_lon),$(bbox.top_lat),$(bbox.right_lon)", kwargs...)
 end
 
@@ -24,7 +24,7 @@ end
 """
 Returns OSM data queried from a overpass using a `bounds`.
 """
-function queryoverpass(bounds::String; timeout::Int=25)
+function queryoverpass(bounds::String; timeout::Int64=25)
     result = request(
         "GET",
         "https://overpass-api.de/api/interpreter",
@@ -49,7 +49,7 @@ creation ´timestamp´ and ´version´ of element are for the time being discard
 https://wiki.openstreetmap.org/wiki/OSM_XML
 """
 function readxmlstream(xmlstream::IO)
-    osmdata = OpenStreetMapData()
+    osmdata = Map()
     currentelement = ""
     currentid = 0
     reader = StreamReader(xmlstream)
@@ -61,9 +61,9 @@ function readxmlstream(xmlstream::IO)
                 if version != "0.6"
                     @warn("This is version $version, currently only vesrion `0.6` is supported")
                 end
-                osmdata.fileinfo.writingprogram = reader["generator"]
+                osmdata.meta[:writingprogram] = reader["generator"]
             elseif elname == "bounds"
-                osmdata.fileinfo.bbox = BoundingBox(
+                osmdata.meta[:bbox] = BBox(
                     parse(Float64, reader["minlat"]),
                     parse(Float64, reader["minlon"]),
                     parse(Float64, reader["maxlat"]),
@@ -71,36 +71,42 @@ function readxmlstream(xmlstream::IO)
                 )
             elseif elname == "node"
                 currentelement = "node"
-                currentid = parse(Int, reader["id"])
-                push!(osmdata.nodes.id, parse(Int, reader["id"]))
-                push!(osmdata.nodes.lat, parse(Float64, reader["lat"]))
-                push!(osmdata.nodes.lon, parse(Float64, reader["lon"]))
+                currentid = parse(Int64, reader["id"])
+                osmdata.nodes[currentid] = Node(
+                    LatLon(parse(Float64, reader["lat"]), parse(Float64, reader["lon"])),
+                    Dict{String, String}()
+                )
             elseif elname == "way"
                 currentelement = "way"
-                currentid = parse(Int, reader["id"])
-                osmdata.ways[currentid] = Int[]
-            elseif elname == "relation"
-                currentelement = "relation"
-                currentid = parse(Int, reader["id"])
-                osmdata.relations[currentid] = Dict{Symbol,Any}(
-                    :role => Any[],
-                    :id => Int[],
-                    :type => Symbol[]
-                )
-            elseif elname == "tag"
-                # can belong to `node`, `way`, or `relation`
-                osmdata.tags[currentid] = get(osmdata.tags, currentid, Dict())
-                osmdata.tags[currentid][Symbol(reader["k"])] = reader["v"]
+                currentid = parse(Int64, reader["id"])
+                osmdata.ways[currentid] = Way(Int64[], Dict{String, String}())
             elseif elname == "nd"
                 # can only belong to `way`
                 @assert currentelement == "way"
-                push!(osmdata.ways[currentid], parse(Int, reader["ref"]))
+                push!(osmdata.ways[currentid].refs, parse(Int64, reader["ref"]))
+            elseif elname == "relation"
+                currentelement = "relation"
+                currentid = parse(Int64, reader["id"])
+                osmdata.relations[currentid] = Relation(
+                    Int64[], Symbol[], String[], Dict{String, String}()
+                )
             elseif elname == "member"
                 # can only belong to `relation`
                 @assert currentelement == "relation"
-                push!(osmdata.relations[currentid][:role], reader["role"])
-                push!(osmdata.relations[currentid][:id], parse(Int, reader["ref"]))
-                push!(osmdata.relations[currentid][:type], Symbol(reader["type"]))
+                push!(osmdata.relations[currentid].refs, parse(Int64, reader["ref"]))
+                push!(osmdata.relations[currentid].types, Symbol(reader["type"]))
+                push!(osmdata.relations[currentid].roles, reader["role"])
+            elseif elname == "tag"
+                # can belong to `node`, `way`, or `relation`
+                if currentelement == "node"
+                osmdata.nodes[currentid].tags[reader["k"]] = reader["v"]
+                elseif currentelement == "way"
+                    osmdata.ways[currentid].tags[reader["k"]] = reader["v"]
+                elseif currentelement == "relation"
+                    osmdata.relations[currentid].tags[reader["k"]] = reader["v"]
+                else
+                    @error("unrecognized element: $currentelement")
+                end
             else
                 @warn("unrecognized element: $elname")
             end
