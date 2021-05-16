@@ -1,3 +1,6 @@
+using ProtoBuf: readproto, PipeBuffer
+using CodecZlib: ZlibDecompressorStream
+
 """
 Returns OSM data read from a PBF file. Data-set are available from various sources, e.g. https://download.geofabrik.de/
 
@@ -8,11 +11,10 @@ osmdata = OpenStreetMapIO.readpbf("/home/jrklasen/Desktop/hamburg-latest.osm.pbf
 
 ```
 """
-function readpbf(filename::String)
+function readpbf(filename::String)::Map
     osmdata = Map()
     blobheader = OSMPBF.BlobHeader()
     blob = OSMPBF.Blob()
-
     open(filename, "r") do f
         readnext!(f, blobheader, blob)
         @assert blobheader._type == "OSMHeader"
@@ -23,7 +25,7 @@ function readpbf(filename::String)
             processblock!(osmdata, readblock!(blob, OSMPBF.PrimitiveBlock()))
         end
     end
-    osmdata
+    return osmdata
 end
 
 function readnext!(f, blobheader::OSMPBF.BlobHeader, blob::OSMPBF.Blob)
@@ -32,7 +34,7 @@ function readnext!(f, blobheader::OSMPBF.BlobHeader, blob::OSMPBF.Blob)
     readproto(PipeBuffer(read(f, blobheader.datasize)), blob)
 end
 
-function readblock!(blob::OSMPBF.Blob, block:: Union{OSMPBF.HeaderBlock, OSMPBF.PrimitiveBlock})
+function readblock!(blob::OSMPBF.Blob, block:: Union{OSMPBF.HeaderBlock,OSMPBF.PrimitiveBlock})
     @assert xor(isempty(blob.raw), isempty(blob.zlib_data))
     if !isempty(blob.raw)
         readproto(PipeBuffer(blob.raw), block)
@@ -70,82 +72,103 @@ function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
 end
 
 function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
+    # this could be extended by call back selection
     lookuptable =  Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
         :lat_offset =>  primblock.lat_offset,
         :lon_offset =>  primblock.lon_offset,
         :granularity => primblock.granularity
     )
-
     for primgrp in primblock.primitivegroup
+        merge!(osmdata.nodes, extractnodes(primgrp, lookuptable))
         if hasproperty(primgrp, :dense)
-            densenodes!(osmdata, primgrp, lookuptable, latlonparameter)
+            merge!(osmdata.nodes,  extractdensenodes(primgrp, lookuptable, latlonparameter))
         end
-        nodes!(osmdata, primgrp, lookuptable)
-        ways!(osmdata, primgrp, lookuptable)
-        relations!(osmdata, primgrp, lookuptable)
+        merge!(osmdata.ways, extractways(primgrp, lookuptable))
+        merge!(osmdata.relations, extractrelations(primgrp, lookuptable))
     end
 end
 
-function densenodes!(osmdata::Map, primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)
+function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Node}
+    nodes = Dict{Int64,Node}()
+    for n in primgrp.nodes
+        @assert length(n.keys) == length(n.vals)
+        if length(n.keys) > 0
+            tags = Dict{Symbol,String}()
+            for (k, v) in zip(n.keys, n.vals)
+                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+            end
+            nodes[n.id] = Node(LatLon(n.lat, n.lon), tags)
+        else
+            nodes[n.id] = Node(LatLon(n.lat, n.lon), nothing)
+        end
+    end
+    return nodes
+end
+
+function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)::Dict{Int64,Node}
     ids = cumsum(primgrp.dense.id)
     lats = 1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat))
     lons = 1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon))
     @assert length(ids) == length(lats) == length(lons)
-    for (id, lat, lon) in zip(ids, lats, lons)
-        osmdata.nodes[id] = Node(LatLon(lat, lon), Dict{String, String}())
-    end
+    # extract tags
+    @assert primgrp.dense.keys_vals[end] == 0
     # decode tags i: node id index, kv: key-value index, k: key index, v: value index
-    let i = 1, kv = 1
-        @assert primgrp.dense.keys_vals[end] == 0
-        while kv <= length(primgrp.dense.keys_vals)
-            k = primgrp.dense.keys_vals[kv]
-            if k == 0
-                # move to next node
-                i += 1; kv += 1
-            else
-                # continue with current note
-                @assert kv < length(primgrp.dense.keys_vals)
-                v = primgrp.dense.keys_vals[kv + 1]
-                id = ids[i]
-                osmdata.nodes[id].tags[lookuptable[k + 1]] = lookuptable[v + 1]
-                kv += 2
-            end
+    i = 1; kv = 1
+    tags = Dict{Int64,Dict{Symbol,String}}()
+    while kv <= length(primgrp.dense.keys_vals)
+        k = primgrp.dense.keys_vals[kv]
+        if k == 0
+            # move to next node
+            i += 1; kv += 1
+        else
+            # continue with current note
+            @assert kv < length(primgrp.dense.keys_vals)
+            v = primgrp.dense.keys_vals[kv + 1]
+            id = ids[i]
+            tags[id] = get(tags, id, Dict{Symbol,String}())
+            tags[id][Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+            kv += 2
         end
     end
-end
-
-function nodes!(osmdata::Map, primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})
-    for n in primgrp.nodes
-        osmdata.nodes[n.id] = Node(LatLon(lat, lon), Dict{String, String}())
-        @assert length(n.keys) == length(n.vals)
-        for (k, v) in zip(n.keys, n.vals)
-            osmdata.nodes[n.id].tags[lookuptable[k + 1]] = lookuptable[v + 1]
-        end
+    # assemble Node objects
+    nodes = Dict{Int64,Node}()
+    for (id, lat, lon) in zip(ids, lats, lons)
+        nodes[id] = Node(LatLon(lat, lon), get(tags, id, nothing))
     end
+    return nodes
 end
 
-function ways!(osmdata::Map, primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})
+function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Way}
+    ways = Dict{Int64,Way}()
     for w in primgrp.ways
-        osmdata.ways[w.id] = Way(cumsum(w.refs), Dict{String, String}())
-        for (k, v) in zip(w.keys, w.vals)
-            osmdata.ways[w.id].tags[lookuptable[k + 1]] = lookuptable[v + 1]
+        if length(w.keys) > 0
+            tags = Dict{Symbol,String}()
+            for (k, v) in zip(w.keys, w.vals)
+                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+            end
+            ways[w.id] = Way(cumsum(w.refs), tags)
+        else
+            ways[w.id] = Way(cumsum(w.refs), nothing)
         end
     end
+    return ways
 end
 
-function relations!(osmdata::Map, primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})
+function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Relation}
+    relations = Dict{Int64,Relation}()
     for r in primgrp.relations
-        osmdata.relations[r.id] = Relation(
-            cumsum(r.memids),
-            membertype.(r.types),
-            lookuptable[r.roles_sid .+ 1],
-            Dict{String, String}()
-        )
-        for (k, v) in zip(r.keys, r.vals)
-            osmdata.relations[r.id].tags[lookuptable[k + 1]] = lookuptable[v + 1]
+        if length(r.keys) > 0
+            tags = Dict{Symbol,String}()
+            for (k, v) in zip(r.keys, r.vals)
+                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+            end
+            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid .+ 1], tags)
+        else
+            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid .+ 1], nothing)
         end
     end
+    return relations
 end
 
 function membertype(i)

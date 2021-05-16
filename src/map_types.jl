@@ -16,19 +16,19 @@ end
 
 struct Node
     latlon::LatLon
-    tags::Dict{String,String}
+    tags::Union{Dict{Symbol,String}, Nothing}
 end
 
 struct Way
     refs::Vector{Int64}
-    tags::Dict{String,String}
+    tags::Union{Dict{Symbol,String}, Nothing}
 end
 
 struct Relation
     refs::Vector{Int64}
     types::Vector{Symbol}
     roles::Vector{String}
-    tags::Dict{String,String}
+    tags::Union{Dict{Symbol,String}, Nothing}
 end
 
 struct Map
@@ -39,7 +39,3 @@ struct Map
 
     Map() = new(Dict(), Dict(), Dict(), Dict())
 end
-
-
-
-

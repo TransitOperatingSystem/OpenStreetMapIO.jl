@@ -1,15 +1,20 @@
+using EzXML
+using HTTP: request
+
 """
 Returns OSM data read from a OSM file.
 """
-function readosm(filename::String)
-    readxmlstream(open(filename, "r"))
+function readosm(filename::String)::Map
+    xmldoc = EzXML.readxml(open(filename, "r"))
+    return readxmldoc(xmldoc)
 end
 
 """
 Returns OSM data queried from a overpass using a `BBox`.
 """
-function queryoverpass(bbox::BBox; kwargs...)
-    queryoverpass("$(bbox.bottom_lat),$(bbox.left_lon),$(bbox.top_lat),$(bbox.right_lon)", kwargs...)
+function queryoverpass(bbox::BBox; kwargs...)::Map
+    osmdata = queryoverpass("$(bbox.bottom_lat),$(bbox.left_lon),$(bbox.top_lat),$(bbox.right_lon)", kwargs...)
+    return osmdata
 end
 
 
@@ -17,14 +22,15 @@ end
 Returns OSM data queried from a overpass using `radius`.
 """
 function queryoverpass(lonlat::LatLon, radius::Real; kwargs...)
-    queryoverpass("around:$radius,$(lonlat.lat),$(lonlatl.lon)", kwargs...)
+    osmdata = queryoverpass("around:$radius,$(lonlat.lat),$(lonlatl.lon)", kwargs...)
+    return osmdata
 end
 
 
 """
 Returns OSM data queried from a overpass using a `bounds`.
 """
-function queryoverpass(bounds::String; timeout::Int64=25)
+function queryoverpass(bounds::String; timeout::Int64=25)::Map
     result = request(
         "GET",
         "https://overpass-api.de/api/interpreter",
@@ -41,77 +47,125 @@ function queryoverpass(bounds::String; timeout::Int64=25)
             """
         )
     )
-    readxmlstream(IOBuffer(result.body))
+    xmldoc = EzXML.readxml(IOBuffer(result.body))
+    return readxmldoc(xmldoc)
 end
 
 """
 creation ´timestamp´ and ´version´ of element are for the time being discarded
 https://wiki.openstreetmap.org/wiki/OSM_XML
 """
-function readxmlstream(xmlstream::IO)
+function readxmldoc(xmldoc::EzXML.Document)::Map
     osmdata = Map()
-    currentelement = ""
-    currentid = 0
-    reader = StreamReader(xmlstream)
-    for typ in reader
-        if typ == READER_ELEMENT
-            elname = nodename(reader)
-            if elname == "osm"
-                version = reader["version"]
-                if version != "0.6"
-                    @warn("This is version $version, currently only vesrion `0.6` is supported")
+    # Iterate over child elements.
+    for xmlnode in EzXML.eachelement(root(xmldoc))
+        elname = EzXML.nodename(xmlnode)
+        if elname == "bounds"
+            osmdata.meta[:bbox] = osmbound(xmlnode)
+        elseif elname == "node"
+            k, v = osmnode(xmlnode)
+            osmdata.nodes[k] = v
+        elseif elname == "way"
+            k, v = osmway(xmlnode)
+            osmdata.ways[k] = v
+        elseif elname == "relation"
+            k, v = osmrelation(xmlnode)
+            osmdata.relations[k] = v
+        else
+            merge!(osmdata.meta, osmunknown(xmlnode))
+        end
+    end
+    return osmdata
+end
+
+function osmbound(xmlnode::EzXML.Node)::BBox
+    bbox = BBox(
+        parse(Float64, xmlnode["minlat"]),
+        parse(Float64, xmlnode["minlon"]),
+        parse(Float64, xmlnode["maxlat"]),
+        parse(Float64, xmlnode["maxlon"])
+    )
+    return bbox
+end
+
+function osmnode(xmlnode::EzXML.Node)::Tuple{Int64,Node}
+    id = parse(Int64, xmlnode["id"])
+    latlon = LatLon(
+        parse(Float64, xmlnode["lat"]),
+        parse(Float64, xmlnode["lon"])
+    )
+    tags = nothing
+    if EzXML.haselement(xmlnode)
+        # Iterate over child elements.
+        for subxmlnode in EzXML.eachelement(xmlnode)
+            elname = EzXML.nodename(subxmlnode)
+            if elname == "tag"
+                if tags === nothing
+                    tags = Dict{Symbol,String}()
                 end
-                osmdata.meta[:writingprogram] = reader["generator"]
-            elseif elname == "bounds"
-                osmdata.meta[:bbox] = BBox(
-                    parse(Float64, reader["minlat"]),
-                    parse(Float64, reader["minlon"]),
-                    parse(Float64, reader["maxlat"]),
-                    parse(Float64, reader["maxlon"])
-                )
-            elseif elname == "node"
-                currentelement = "node"
-                currentid = parse(Int64, reader["id"])
-                osmdata.nodes[currentid] = Node(
-                    LatLon(parse(Float64, reader["lat"]), parse(Float64, reader["lon"])),
-                    Dict{String, String}()
-                )
-            elseif elname == "way"
-                currentelement = "way"
-                currentid = parse(Int64, reader["id"])
-                osmdata.ways[currentid] = Way(Int64[], Dict{String, String}())
-            elseif elname == "nd"
-                # can only belong to `way`
-                @assert currentelement == "way"
-                push!(osmdata.ways[currentid].refs, parse(Int64, reader["ref"]))
-            elseif elname == "relation"
-                currentelement = "relation"
-                currentid = parse(Int64, reader["id"])
-                osmdata.relations[currentid] = Relation(
-                    Int64[], Symbol[], String[], Dict{String, String}()
-                )
-            elseif elname == "member"
-                # can only belong to `relation`
-                @assert currentelement == "relation"
-                push!(osmdata.relations[currentid].refs, parse(Int64, reader["ref"]))
-                push!(osmdata.relations[currentid].types, Symbol(reader["type"]))
-                push!(osmdata.relations[currentid].roles, reader["role"])
-            elseif elname == "tag"
-                # can belong to `node`, `way`, or `relation`
-                if currentelement == "node"
-                osmdata.nodes[currentid].tags[reader["k"]] = reader["v"]
-                elseif currentelement == "way"
-                    osmdata.ways[currentid].tags[reader["k"]] = reader["v"]
-                elseif currentelement == "relation"
-                    osmdata.relations[currentid].tags[reader["k"]] = reader["v"]
-                else
-                    @error("unrecognized element: $currentelement")
-                end
-            else
-                @warn("unrecognized element: $elname")
+                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
             end
         end
     end
-    close(reader)
-    osmdata
+    return id, Node(latlon, tags)
+end
+
+function osmway(xmlnode::EzXML.Node)::Tuple{Int64,Way}
+    id = parse(Int64, xmlnode["id"])
+    refs = []
+    tags = nothing
+    if EzXML.haselement(xmlnode)
+        # Iterate over child elements.
+        for subxmlnode in EzXML.eachelement(xmlnode)
+            elname = EzXML.nodename(subxmlnode)
+            if elname == "nd"
+                push!(refs, parse(Int64, subxmlnode["ref"]))
+            elseif elname == "tag"
+                if tags === nothing
+                    tags = Dict{Symbol,String}()
+                end
+                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
+            end
+        end
+    end
+    return id, Way(refs, tags)
+end
+
+function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
+    id = parse(Int64, xmlnode["id"])
+    refs = Int64[]
+    types = Symbol[]
+    roles = String[]
+    tags = nothing
+    if EzXML.haselement(xmlnode)
+        # Iterate over child elements.
+        for subxmlnode in EzXML.eachelement(xmlnode)
+            elname = EzXML.nodename(subxmlnode)
+            if elname == "member"
+                push!(refs, parse(Int64, subxmlnode["ref"]))
+                push!(types, Symbol(subxmlnode["type"]))
+                push!(roles, subxmlnode["role"])
+            elseif elname == "tag"
+                if tags === nothing
+                    tags = Dict{Symbol,String}()
+                end
+                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
+            end
+        end
+    end
+    return id, Relation(refs, types, roles, tags)
+end
+
+function osmunknown(xmlnode::EzXML.Node)::Dict{Symbol,Any}
+    out = Dict{Symbol,Any}()
+    for kv in EzXML.attributes(xmlnode)
+        out[Symbol(EzXML.nodename(kv))] = EzXML.nodecontent(kv)
+    end
+    if EzXML.haselement(xmlnode)
+        for subxmlnode in EzXML.eachelement(xmlnode)
+            elname = EzXML.nodename(subxmlnode)
+            out[Symbol(elname)] = osmunknown(subxmlnode)
+        end
+    end
+    return out
 end
