@@ -31,21 +31,21 @@ end
 Returns OSM data queried from a overpass using a `bounds`.
 """
 function queryoverpass(bounds::String; timeout::Int64=25)::Map
+    query = """
+        [out:xml][timeout:$timeout];
+        (
+            node($bounds);
+            way($bounds);
+            relation($bounds);
+        );
+        out body;
+        >;
+        out skel qt;
+    """
     result = request(
         "GET",
         "https://overpass-api.de/api/interpreter",
-        query=Dict("data" => """
-                [out:xml][timeout:$timeout];
-                (
-                    node($bounds);
-                    way($bounds);
-                    relation($bounds);
-                );
-                out body;
-                >;
-                out skel qt;
-            """
-        )
+        query=Dict("data" => query)
     )
     xmldoc = EzXML.readxml(IOBuffer(result.body))
     return readxmldoc(xmldoc)

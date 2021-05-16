@@ -51,10 +51,10 @@ end
 function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
     if hasproperty(header, :bbox)
         osmdata.meta[:bbox] = BBox(
-            1e-9 * header.bbox.bottom,
-            1e-9 * header.bbox.left,
-            1e-9 * header.bbox.top,
-            1e-9 * header.bbox.right
+            round(1e-9 * header.bbox.bottom, digits=7),
+            round(1e-9 * header.bbox.left, digits=7),
+            round(1e-9 * header.bbox.top, digits=7),
+            round(1e-9 * header.bbox.right, digits=7)
         )
     end
     if hasproperty(header, :osmosis_replication_timestamp)
@@ -108,8 +108,8 @@ end
 
 function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)::Dict{Int64,Node}
     ids = cumsum(primgrp.dense.id)
-    lats = 1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat))
-    lons = 1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon))
+    lats = round.(1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat)), digits=7)
+    lons = round.(1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon)), digits=7)
     @assert length(ids) == length(lats) == length(lons)
     # extract tags
     @assert primgrp.dense.keys_vals[end] == 0
@@ -126,7 +126,9 @@ function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{S
             @assert kv < length(primgrp.dense.keys_vals)
             v = primgrp.dense.keys_vals[kv + 1]
             id = ids[i]
-            tags[id] = get(tags, id, Dict{Symbol,String}())
+            if !haskey(tags, id)
+                tags[id] =  Dict{Symbol,String}()
+            end
             tags[id][Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
             kv += 2
         end
