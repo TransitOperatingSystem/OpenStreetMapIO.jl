@@ -2,14 +2,17 @@ using EzXML
 using HTTP: request
 
 """
+    readosm(filename)
+
 Returns OSM data read from a OSM file.
 """
 function readosm(filename::String)::Map
-    xmldoc = EzXML.readxml(open(filename, "r"))
-    return readxmldoc(xmldoc)
+    return readxmldoc(EzXML.readxml(open(filename, "r")))
 end
 
 """
+    queryoverpass(bbox)
+
 Returns OSM data queried from a overpass using a `BBox`.
 """
 function queryoverpass(bbox::BBox; kwargs...)::Map
@@ -19,6 +22,8 @@ end
 
 
 """
+    queryoverpass(lonlat, radius)
+
 Returns OSM data queried from a overpass using `radius`.
 """
 function queryoverpass(lonlat::LatLon, radius::Real; kwargs...)
@@ -28,6 +33,8 @@ end
 
 
 """
+    queryoverpass(bounds)
+
 Returns OSM data queried from a overpass using a `bounds`.
 """
 function queryoverpass(bounds::String; timeout::Int64=25)::Map
@@ -47,13 +54,13 @@ function queryoverpass(bounds::String; timeout::Int64=25)::Map
         "https://overpass-api.de/api/interpreter",
         query=Dict("data" => query)
     )
-    xmldoc = EzXML.readxml(IOBuffer(result.body))
-    return readxmldoc(xmldoc)
+    return readxmldoc(EzXML.readxml(IOBuffer(result.body)))
 end
 
 """
-creation ´timestamp´ and ´version´ of element are for the time being discarded
-https://wiki.openstreetmap.org/wiki/OSM_XML
+The argument is a xml document, it returns an osm object.
+
+Explanation of the pbf-data-model can be found here https://wiki.openstreetmap.org/wiki/OSM_XML
 """
 function readxmldoc(xmldoc::EzXML.Document)::Map
     osmdata = Map()

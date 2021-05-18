@@ -2,14 +2,13 @@ using ProtoBuf: readproto, PipeBuffer
 using CodecZlib: ZlibDecompressorStream
 
 """
-Returns OSM data read from a PBF file. Data-set are available from various sources, e.g. https://download.geofabrik.de/
+    osmdata = readpbf(filename)
 
-Explanation of the data model can be found here https://wiki.openstreetmap.org/wiki/PBF_Format
+`readpbf` has a filename on an pbf-file as its only argumentet.
+It rurns the read OSM data object.
+pbf-files are available from various sources like e.g. https://download.geofabrik.de/
 
-```
-osmdata = OpenStreetMapIO.readpbf("/home/jrklasen/Desktop/hamburg-latest.osm.pbf");
-
-```
+Explanation of the pbf-data-model can be found here https://wiki.openstreetmap.org/wiki/PBF_Format
 """
 function readpbf(filename::String)::Map
     osmdata = Map()
@@ -72,7 +71,8 @@ function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
 end
 
 function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
-    # this could be extended by call back selection
+    # In this function blocks of OSM data are read. In the future selection of
+    # elements (e.g. for routing) could go here via call_back etc.
     lookuptable =  Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
         :lat_offset =>  primblock.lat_offset,
