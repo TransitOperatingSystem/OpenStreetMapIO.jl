@@ -2,7 +2,7 @@ using ProtoBuf: readproto, PipeBuffer
 using CodecZlib: ZlibDecompressorStream
 
 """
-    osmdata = readpbf(filename)
+    readpbf(filename)
 
 `readpbf` has a filename on an pbf-file as its only argumentet.
 It rurns the read OSM data object.
