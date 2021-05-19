@@ -1,4 +1,4 @@
-# OpenStreetMap pbf ProtoBuffer fils
+# OpenStreetMap ProtoBuffer fils in JUlia
 
 For updating the julia code generated from the proto files,
 
