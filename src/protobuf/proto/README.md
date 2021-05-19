@@ -9,5 +9,3 @@ For updating the julia code generated from the proto files,
 using ProtoBuf
 ProtoBuf.protoc(`--julia_out=. fileformat.proto osmformat.proto`)
 ```
-
-Explanation of the data-model for pbf and osm files are avaiebal at the OSM Wiki [OSM PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) and [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML)
