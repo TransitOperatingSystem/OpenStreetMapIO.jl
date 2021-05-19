@@ -20,7 +20,6 @@ function queryoverpass(bbox::BBox; kwargs...)::Map
     return osmdata
 end
 
-
 """
     queryoverpass(lonlat, radius)
 
@@ -30,7 +29,6 @@ function queryoverpass(lonlat::LatLon, radius::Real; kwargs...)
     osmdata = queryoverpass("around:$radius,$(lonlat.lat),$(lonlatl.lon)", kwargs...)
     return osmdata
 end
-
 
 """
     queryoverpass(bounds)
@@ -59,8 +57,6 @@ end
 
 """
 The argument is a xml document, it returns an osm object.
-
-Explanation of the pbf-data-model can be found here https://wiki.openstreetmap.org/wiki/OSM_XML
 """
 function readxmldoc(xmldoc::EzXML.Document)::Map
     osmdata = Map()

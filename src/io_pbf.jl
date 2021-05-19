@@ -1,14 +1,11 @@
 using ProtoBuf: readproto, PipeBuffer
 using CodecZlib: ZlibDecompressorStream
+using Dates: unix2datetime, DateTime
 
 """
     readpbf(filename)
 
-`readpbf` has a filename on an pbf-file as its only argumentet.
-It rurns the read OSM data object.
-pbf-files are available from various sources like e.g. https://download.geofabrik.de/
-
-Explanation of the pbf-data-model can be found here https://wiki.openstreetmap.org/wiki/PBF_Format
+`readpbf` has a filename on an pbf-file as its only argumentet. It returns the read OSM data object.
 """
 function readpbf(filename::String)::Map
     osmdata = Map()
