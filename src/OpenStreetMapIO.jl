@@ -1,7 +1,5 @@
 module OpenStreetMapIO
 
-using Dates: unix2datetime, DateTime
-
 include("map_types.jl")
 include("io_pbf.jl")
 include("io_xml.jl")

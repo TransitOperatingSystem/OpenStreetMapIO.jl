@@ -1,6 +1,5 @@
 using OpenStreetMapIO, Test
 
-
 @testset "Testing `pbf` file" begin
     @time osmdata = OpenStreetMapIO.readpbf("data/map.pbf")
 
@@ -38,7 +37,6 @@ using OpenStreetMapIO, Test
     end
 
 end
-
 
 @testset "Testing `osm` file" begin
     @time osmdata = OpenStreetMapIO.readosm("data/map.osm")
