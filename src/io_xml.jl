@@ -4,7 +4,8 @@ using HTTP: request
 """
     readosm(filename)
 
-Returns OSM data read from a OSM file.
+`readosm` has only one argument `filename`, taking a string of the pbf-file path and name.
+It returns an object containing the OSM data.
 """
 function readosm(filename::String)::Map
     return readxmldoc(EzXML.readxml(open(filename, "r")))
@@ -13,7 +14,8 @@ end
 """
     queryoverpass(bbox)
 
-Returns OSM data queried from a overpass using a `BBox`.
+`queryoverpass` has only one argument `bbox`.
+It returns an object containing the OSM data.
 """
 function queryoverpass(bbox::BBox; kwargs...)::Map
     osmdata = queryoverpass("$(bbox.bottom_lat),$(bbox.left_lon),$(bbox.top_lat),$(bbox.right_lon)", kwargs...)
@@ -23,7 +25,8 @@ end
 """
     queryoverpass(lonlat, radius)
 
-Returns OSM data queried from a overpass using `radius`.
+`queryoverpass` has two arguments, `lonlat` and `radius`.
+It returns an object containing the OSM data.
 """
 function queryoverpass(lonlat::LatLon, radius::Real; kwargs...)
     osmdata = queryoverpass("around:$radius,$(lonlat.lat),$(lonlatl.lon)", kwargs...)
@@ -33,7 +36,8 @@ end
 """
     queryoverpass(bounds)
 
-Returns OSM data queried from a overpass using a `bounds`.
+`queryoverpass` has only one argument `bounds`.
+It returns an object containing the OSM data.
 """
 function queryoverpass(bounds::String; timeout::Int64=25)::Map
     query = """
