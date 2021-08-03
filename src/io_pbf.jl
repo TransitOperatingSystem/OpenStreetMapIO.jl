@@ -5,7 +5,8 @@ using Dates: unix2datetime, DateTime
 """
     readpbf(filename)
 
-`readpbf` has a filename on an pbf-file as its only argumentet. It returns the read OSM data object.
+`readpbf` has only one argument `filename`, taking a string of the pbf-file path and name.
+It returns an object containing the OSM data.
 """
 function readpbf(filename::String)::Map
     osmdata = Map()
@@ -68,8 +69,6 @@ function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
 end
 
 function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
-    # In this function blocks of OSM data are read. In the future selection of
-    # elements (e.g. for routing) could go here via call_back etc.
     lookuptable =  Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
         :lat_offset =>  primblock.lat_offset,
@@ -77,6 +76,7 @@ function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
         :granularity => primblock.granularity
     )
     for primgrp in primblock.primitivegroup
+        # Possible extension: callback functions for the selecton of specific elements (e.g. for routing).
         merge!(osmdata.nodes, extractnodes(primgrp, lookuptable))
         if hasproperty(primgrp, :dense)
             merge!(osmdata.nodes,  extractdensenodes(primgrp, lookuptable, latlonparameter))
