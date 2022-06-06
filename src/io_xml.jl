@@ -68,7 +68,7 @@ function readxmldoc(xmldoc::EzXML.Document)::Map
     for xmlnode in EzXML.eachelement(root(xmldoc))
         elname = EzXML.nodename(xmlnode)
         if elname == "bounds"
-            osmdata.meta[:bbox] = osmbound(xmlnode)
+            osmdata.meta["bbox"] = osmbound(xmlnode)
         elseif elname == "node"
             k, v = osmnode(xmlnode)
             osmdata.nodes[k] = v
@@ -108,9 +108,9 @@ function osmnode(xmlnode::EzXML.Node)::Tuple{Int64,Node}
             elname = EzXML.nodename(subxmlnode)
             if elname == "tag"
                 if tags === nothing
-                    tags = Dict{Symbol,String}()
+                    tags = Dict{String,String}()
                 end
-                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
+                tags[subxmlnode["k"]] = subxmlnode["v"]
             end
         end
     end
@@ -129,9 +129,9 @@ function osmway(xmlnode::EzXML.Node)::Tuple{Int64,Way}
                 push!(refs, parse(Int64, subxmlnode["ref"]))
             elseif elname == "tag"
                 if tags === nothing
-                    tags = Dict{Symbol,String}()
+                    tags = Dict{String,String}()
                 end
-                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
+                tags[subxmlnode["k"]] = subxmlnode["v"]
             end
         end
     end
@@ -141,7 +141,7 @@ end
 function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
     id = parse(Int64, xmlnode["id"])
     refs = Int64[]
-    types = Symbol[]
+    types = String[]
     roles = String[]
     tags = nothing
     if EzXML.haselement(xmlnode)
@@ -150,28 +150,28 @@ function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
             elname = EzXML.nodename(subxmlnode)
             if elname == "member"
                 push!(refs, parse(Int64, subxmlnode["ref"]))
-                push!(types, Symbol(subxmlnode["type"]))
+                push!(types, subxmlnode["type"])
                 push!(roles, subxmlnode["role"])
             elseif elname == "tag"
                 if tags === nothing
-                    tags = Dict{Symbol,String}()
+                    tags = Dict{String,String}()
                 end
-                tags[Symbol(subxmlnode["k"])] = subxmlnode["v"]
+                tags[subxmlnode["k"]] = subxmlnode["v"]
             end
         end
     end
     return id, Relation(refs, types, roles, tags)
 end
 
-function osmunknown(xmlnode::EzXML.Node)::Dict{Symbol,Any}
-    out = Dict{Symbol,Any}()
+function osmunknown(xmlnode::EzXML.Node)::Dict{String,Any}
+    out = Dict{String,Any}()
     for kv in EzXML.attributes(xmlnode)
-        out[Symbol(EzXML.nodename(kv))] = EzXML.nodecontent(kv)
+        out[EzXML.nodename(kv)] = EzXML.nodecontent(kv)
     end
     if EzXML.haselement(xmlnode)
         for subxmlnode in EzXML.eachelement(xmlnode)
             elname = EzXML.nodename(subxmlnode)
-            out[Symbol(elname)] = osmunknown(subxmlnode)
+            out[elname] = osmunknown(subxmlnode)
         end
     end
     return out
