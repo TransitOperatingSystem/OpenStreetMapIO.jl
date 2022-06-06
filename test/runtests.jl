@@ -9,17 +9,17 @@ using OpenStreetMapIO, Test
         @test typeof(node) === Node
         @test node.latlon === LatLon(54.2619665, 9.9854149)
         @test length(node.tags) === 5
-        @test node.tags[Symbol("addr:country")] === "DE"
+        @test node.tags["addr:country"] === "DE"
     end
 
-     @testset "Testing Way" begin
+    @testset "Testing Way" begin
         way = osmdata.ways[889648159]
 
         @test typeof(way) === Way
         @test length(way.refs) === 56
         @test way.refs[23] === 1276389426
         @test length(way.tags) === 2
-        @test way.tags[Symbol("wetland")] === "wet_meadow"
+        @test way.tags["wetland"] === "wet_meadow"
     end
 
     @testset "Testing Relation" begin
@@ -29,11 +29,11 @@ using OpenStreetMapIO, Test
         @test length(relation.refs) === 136
         @test relation.refs[23] === 324374700
         @test length(relation.types) === 136
-        @test relation.types[23] === :node
+        @test relation.types[23] === "node"
         @test length(relation.roles) === 136
         @test relation.roles[23] === "platform"
         @test length(relation.tags) === 8
-        @test relation.tags[Symbol("from")] === "Bordesholm Bahnhof"
+        @test relation.tags["from"] === "Bordesholm Bahnhof"
     end
 
 end
@@ -47,7 +47,7 @@ end
         @test typeof(node) === Node
         @test node.latlon === LatLon(54.2619665, 9.9854149)
         @test length(node.tags) === 5
-        @test node.tags[Symbol("addr:country")] === "DE"
+        @test node.tags["addr:country"] === "DE"
     end
 
     @testset "Testing Way" begin
@@ -57,7 +57,7 @@ end
         @test length(way.refs) === 56
         @test way.refs[23] === 1276389426
         @test length(way.tags) === 2
-        @test way.tags[Symbol(:wetland)] === "wet_meadow"
+        @test way.tags["wetland"] === "wet_meadow"
     end
 
     @testset "Testing Relation" begin
@@ -67,12 +67,10 @@ end
         @test length(relation.refs) === 136
         @test relation.refs[23] === 324374700
         @test length(relation.types) === 136
-        @test relation.types[23] === :node
+        @test relation.types[23] === "node"
         @test length(relation.roles) === 136
         @test relation.roles[23] === "platform"
         @test length(relation.tags) === 8
-        @test relation.tags[Symbol("from")] === "Bordesholm Bahnhof"
+        @test relation.tags["from"] === "Bordesholm Bahnhof"
     end
 end
-
-

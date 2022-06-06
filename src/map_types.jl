@@ -1,4 +1,3 @@
-
 include("protobuf/OSMPBF.jl")
 
 struct BBox
@@ -15,26 +14,26 @@ end
 
 struct Node
     latlon::LatLon
-    tags::Union{Dict{Symbol,String}, Nothing}
+    tags::Union{Dict{String,String},Nothing}
 end
 
 struct Way
     refs::Vector{Int64}
-    tags::Union{Dict{Symbol,String}, Nothing}
+    tags::Union{Dict{String,String},Nothing}
 end
 
 struct Relation
     refs::Vector{Int64}
-    types::Vector{Symbol}
+    types::Vector{String}
     roles::Vector{String}
-    tags::Union{Dict{Symbol,String}, Nothing}
+    tags::Union{Dict{String,String},Nothing}
 end
 
 struct Map
     nodes::Dict{Int64,Node}
     ways::Dict{Int64,Way}
     relations::Dict{Int64,Relation}
-    meta::Dict{Symbol,Any}
+    meta::Dict{String,Any}
 
     Map() = new(Dict(), Dict(), Dict(), Dict())
 end

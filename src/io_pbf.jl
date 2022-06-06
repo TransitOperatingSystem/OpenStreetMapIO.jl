@@ -31,7 +31,7 @@ function readnext!(f, blobheader::OSMPBF.BlobHeader, blob::OSMPBF.Blob)
     readproto(PipeBuffer(read(f, blobheader.datasize)), blob)
 end
 
-function readblock!(blob::OSMPBF.Blob, block:: Union{OSMPBF.HeaderBlock,OSMPBF.PrimitiveBlock})
+function readblock!(blob::OSMPBF.Blob, block::Union{OSMPBF.HeaderBlock,OSMPBF.PrimitiveBlock})
     @assert xor(isempty(blob.raw), isempty(blob.zlib_data))
     if !isempty(blob.raw)
         readproto(PipeBuffer(blob.raw), block)
@@ -47,7 +47,7 @@ end
 
 function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
     if hasproperty(header, :bbox)
-        osmdata.meta[:bbox] = BBox(
+        osmdata.meta["bbox"] = BBox(
             round(1e-9 * header.bbox.bottom, digits=7),
             round(1e-9 * header.bbox.left, digits=7),
             round(1e-9 * header.bbox.top, digits=7),
@@ -55,31 +55,31 @@ function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
         )
     end
     if hasproperty(header, :osmosis_replication_timestamp)
-        osmdata.meta[:writenat] = unix2datetime(header.osmosis_replication_timestamp)
+        osmdata.meta["writenat"] = unix2datetime(header.osmosis_replication_timestamp)
     end
     if hasproperty(header, :osmosis_replication_sequence_number)
-        osmdata.meta[:sequencenumber] = header.osmosis_replication_sequence_number
+        osmdata.meta["sequencenumber"] = header.osmosis_replication_sequence_number
     end
     if hasproperty(header, :osmosis_replication_base_url)
-        osmdata.meta[:baseurl] = header.osmosis_replication_base_url
+        osmdata.meta["baseurl"] = header.osmosis_replication_base_url
     end
     if hasproperty(header, :writingprogram)
-        osmdata.meta[:writingprogram] = header.writingprogram
+        osmdata.meta["writingprogram"] = header.writingprogram
     end
 end
 
 function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
-    lookuptable =  Base.transcode.(String, primblock.stringtable.s)
+    lookuptable = Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
-        :lat_offset =>  primblock.lat_offset,
-        :lon_offset =>  primblock.lon_offset,
+        :lat_offset => primblock.lat_offset,
+        :lon_offset => primblock.lon_offset,
         :granularity => primblock.granularity
     )
     for primgrp in primblock.primitivegroup
         # Possible extension: callback functions for the selecton of specific elements (e.g. for routing).
         merge!(osmdata.nodes, extractnodes(primgrp, lookuptable))
         if hasproperty(primgrp, :dense)
-            merge!(osmdata.nodes,  extractdensenodes(primgrp, lookuptable, latlonparameter))
+            merge!(osmdata.nodes, extractdensenodes(primgrp, lookuptable, latlonparameter))
         end
         merge!(osmdata.ways, extractways(primgrp, lookuptable))
         merge!(osmdata.relations, extractrelations(primgrp, lookuptable))
@@ -91,9 +91,9 @@ function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String
     for n in primgrp.nodes
         @assert length(n.keys) == length(n.vals)
         if length(n.keys) > 0
-            tags = Dict{Symbol,String}()
+            tags = Dict{String,String}()
             for (k, v) in zip(n.keys, n.vals)
-                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+                tags[lookuptable[k+1]] = lookuptable[v+1]
             end
             nodes[n.id] = Node(LatLon(n.lat, n.lon), tags)
         else
@@ -111,22 +111,24 @@ function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{S
     # extract tags
     @assert primgrp.dense.keys_vals[end] == 0
     # decode tags i: node id index, kv: key-value index, k: key index, v: value index
-    i = 1; kv = 1
-    tags = Dict{Int64,Dict{Symbol,String}}()
+    i = 1
+    kv = 1
+    tags = Dict{Int64,Dict{String,String}}()
     while kv <= length(primgrp.dense.keys_vals)
         k = primgrp.dense.keys_vals[kv]
         if k == 0
             # move to next node
-            i += 1; kv += 1
+            i += 1
+            kv += 1
         else
             # continue with current note
             @assert kv < length(primgrp.dense.keys_vals)
-            v = primgrp.dense.keys_vals[kv + 1]
+            v = primgrp.dense.keys_vals[kv+1]
             id = ids[i]
             if !haskey(tags, id)
-                tags[id] =  Dict{Symbol,String}()
+                tags[id] = Dict{String,String}()
             end
-            tags[id][Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+            tags[id][lookuptable[k+1]] = lookuptable[v+1]
             kv += 2
         end
     end
@@ -142,9 +144,9 @@ function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}
     ways = Dict{Int64,Way}()
     for w in primgrp.ways
         if length(w.keys) > 0
-            tags = Dict{Symbol,String}()
+            tags = Dict{String,String}()
             for (k, v) in zip(w.keys, w.vals)
-                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+                tags[lookuptable[k+1]] = lookuptable[v+1]
             end
             ways[w.id] = Way(cumsum(w.refs), tags)
         else
@@ -158,18 +160,24 @@ function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{St
     relations = Dict{Int64,Relation}()
     for r in primgrp.relations
         if length(r.keys) > 0
-            tags = Dict{Symbol,String}()
+            tags = Dict{String,String}()
             for (k, v) in zip(r.keys, r.vals)
-                tags[Symbol(lookuptable[k + 1])] = lookuptable[v + 1]
+                tags[lookuptable[k+1]] = lookuptable[v+1]
             end
-            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid .+ 1], tags)
+            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], tags)
         else
-            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid .+ 1], nothing)
+            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], nothing)
         end
     end
     return relations
 end
 
 function membertype(i)
-    if i == 0; :node elseif i == 1; :way else; :relation end
+    if i == 0
+        "node"
+    elseif i == 1
+        "way"
+    else
+        "relation"
+    end
 end
