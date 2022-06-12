@@ -7,7 +7,7 @@ using HTTP: request
 `readosm` has only one argument `filename`, taking a string of the pbf-file path and name.
 It returns an object containing the OSM data.
 """
-function readosm(filename::String)::Map
+function readosm(filename::String)::OpenStreetMap
     return readxmldoc(EzXML.readxml(open(filename, "r")))
 end
 
@@ -17,7 +17,7 @@ end
 `queryoverpass` has only one argument `bbox`.
 It returns an object containing the OSM data.
 """
-function queryoverpass(bbox::BBox; kwargs...)::Map
+function queryoverpass(bbox::BBox; kwargs...)::OpenStreetMap
     osmdata = queryoverpass("$(bbox.bottom_lat),$(bbox.left_lon),$(bbox.top_lat),$(bbox.right_lon)", kwargs...)
     return osmdata
 end
@@ -39,7 +39,7 @@ end
 `queryoverpass` has only one argument `bounds`.
 It returns an object containing the OSM data.
 """
-function queryoverpass(bounds::String; timeout::Int64=25)::Map
+function queryoverpass(bounds::String; timeout::Int64=25)::OpenStreetMap
     query = """
         [out:xml][timeout:$timeout];
         (
@@ -62,8 +62,8 @@ end
 """
 The argument is a xml document, it returns an osm object.
 """
-function readxmldoc(xmldoc::EzXML.Document)::Map
-    osmdata = Map()
+function readxmldoc(xmldoc::EzXML.Document)::OpenStreetMap
+    osmdata = OpenStreetMap()
     # Iterate over child elements.
     for xmlnode in EzXML.eachelement(root(xmldoc))
         elname = EzXML.nodename(xmlnode)
