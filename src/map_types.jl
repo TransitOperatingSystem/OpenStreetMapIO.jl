@@ -29,11 +29,11 @@ struct Relation
     tags::Union{Dict{String,String},Nothing}
 end
 
-struct Map
+struct OpenStreetMap
     nodes::Dict{Int64,Node}
     ways::Dict{Int64,Way}
     relations::Dict{Int64,Relation}
     meta::Dict{String,Any}
 
-    Map() = new(Dict(), Dict(), Dict(), Dict())
+    OpenStreetMap() = new(Dict(), Dict(), Dict(), Dict())
 end

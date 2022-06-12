@@ -8,8 +8,8 @@ using Dates: unix2datetime, DateTime
 `readpbf` has only one argument `filename`, taking a string of the pbf-file path and name.
 It returns an object containing the OSM data.
 """
-function readpbf(filename::String)::Map
-    osmdata = Map()
+function readpbf(filename::String)::OpenStreetMap
+    osmdata = OpenStreetMap()
     blobheader = OSMPBF.BlobHeader()
     blob = OSMPBF.Blob()
     open(filename, "r") do f
@@ -45,7 +45,7 @@ function readblock!(blob::OSMPBF.Blob, block::Union{OSMPBF.HeaderBlock,OSMPBF.Pr
     end
 end
 
-function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
+function processheader!(osmdata::OpenStreetMap, header::OSMPBF.HeaderBlock)
     if hasproperty(header, :bbox)
         osmdata.meta["bbox"] = BBox(
             round(1e-9 * header.bbox.bottom, digits=7),
@@ -68,7 +68,7 @@ function processheader!(osmdata::Map, header::OSMPBF.HeaderBlock)
     end
 end
 
-function processblock!(osmdata::Map, primblock::OSMPBF.PrimitiveBlock)
+function processblock!(osmdata::OpenStreetMap, primblock::OSMPBF.PrimitiveBlock)
     lookuptable = Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
         :lat_offset => primblock.lat_offset,
