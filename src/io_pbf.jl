@@ -1,4 +1,4 @@
-using ProtoBuf: readproto, PipeBuffer
+using ProtoBuf: decode, ProtoDecoder, PipeBuffer
 using CodecZlib: ZlibDecompressorStream
 using Dates: unix2datetime, DateTime
 
@@ -10,34 +10,33 @@ It returns an object containing the OSM data.
 """
 function readpbf(filename::String)::OpenStreetMap
     osmdata = OpenStreetMap()
-    blobheader = OSMPBF.BlobHeader()
-    blob = OSMPBF.Blob()
     open(filename, "r") do f
-        readnext!(f, blobheader, blob)
-        @assert blobheader._type == "OSMHeader"
-        processheader!(osmdata, readblock!(blob, OSMPBF.HeaderBlock()))
+        blobheader, blob = readnext!(f)
+        @assert blobheader.var"#type" == "OSMHeader"
+        processheader!(osmdata, readblock!(blob, OSMPBF.HeaderBlock))
         while !eof(f)
-            readnext!(f, blobheader, blob)
-            @assert blobheader._type == "OSMData"
-            processblock!(osmdata, readblock!(blob, OSMPBF.PrimitiveBlock()))
+            blobheader, blob = readnext!(f)
+            @assert blobheader.var"#type" == "OSMData"
+            processblock!(osmdata, readblock!(blob, OSMPBF.PrimitiveBlock))
         end
     end
     return osmdata
 end
 
-function readnext!(f, blobheader::OSMPBF.BlobHeader, blob::OSMPBF.Blob)
+function readnext!(f)
     n = ntoh(read(f, UInt32))
-    readproto(PipeBuffer(read(f, n)), blobheader)
-    readproto(PipeBuffer(read(f, blobheader.datasize)), blob)
+    blobheader = decode(ProtoDecoder(PipeBuffer(read(f, n))), OSMPBF.BlobHeader)
+    blob = decode(ProtoDecoder(PipeBuffer(read(f, blobheader.datasize))), OSMPBF.Blob)
+    return blobheader, blob
 end
 
-function readblock!(blob::OSMPBF.Blob, block::Union{OSMPBF.HeaderBlock,OSMPBF.PrimitiveBlock})
+function readblock!(blob::OSMPBF.Blob, block::Union{Type{OSMPBF.HeaderBlock}, Type{OSMPBF.PrimitiveBlock}})
     @assert xor(isempty(blob.raw), isempty(blob.zlib_data))
     if !isempty(blob.raw)
-        readproto(PipeBuffer(blob.raw), block)
+        decode(ProtoDecoder(PipeBuffer(blob.raw)), block)
     elseif !isempty(blob.zlib_data)
-        readproto(
-            ZlibDecompressorStream(IOBuffer(blob.zlib_data)),
+        decode(
+            ProtoDecoder(ZlibDecompressorStream(IOBuffer(blob.zlib_data))),
             block
         )
     else
@@ -104,6 +103,9 @@ function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String
 end
 
 function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)::Dict{Int64,Node}
+    if primgrp.dense === nothing
+        return Dict{Int64,Node}()
+    end
     ids = cumsum(primgrp.dense.id)
     lats = round.(1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat)), digits=7)
     lons = round.(1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon)), digits=7)

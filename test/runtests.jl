@@ -29,7 +29,7 @@ using OpenStreetMapIO, Test
         @test length(relation.refs) === 136
         @test relation.refs[23] === 324374700
         @test length(relation.types) === 136
-        @test relation.types[23] === "node"
+        @test relation.types[23] === "relation"
         @test length(relation.roles) === 136
         @test relation.roles[23] === "platform"
         @test length(relation.tags) === 8

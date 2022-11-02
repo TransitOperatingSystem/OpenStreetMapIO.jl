@@ -7,5 +7,5 @@ For generating julia code from the proto files,
 
 ```julia
 using ProtoBuf
-ProtoBuf.protoc(`--julia_out=. fileformat.proto osmformat.proto`)
+protojl(["fileformat.proto", "osmformat.proto"], ".", ".")
 ```
