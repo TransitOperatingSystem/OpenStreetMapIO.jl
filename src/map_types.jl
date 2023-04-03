@@ -14,26 +14,26 @@ end
 
 struct Node
     latlon::LatLon
-    tags::Union{Dict{String,String},Nothing}
+    tags::Union{Dict{String, String}, Nothing}
 end
 
 struct Way
     refs::Vector{Int64}
-    tags::Union{Dict{String,String},Nothing}
+    tags::Union{Dict{String, String}, Nothing}
 end
 
 struct Relation
     refs::Vector{Int64}
     types::Vector{String}
     roles::Vector{String}
-    tags::Union{Dict{String,String},Nothing}
+    tags::Union{Dict{String, String}, Nothing}
 end
 
 struct OpenStreetMap
-    nodes::Dict{Int64,Node}
-    ways::Dict{Int64,Way}
-    relations::Dict{Int64,Relation}
-    meta::Dict{String,Any}
+    nodes::Dict{Int64, Node}
+    ways::Dict{Int64, Way}
+    relations::Dict{Int64, Relation}
+    meta::Dict{String, Any}
 
     OpenStreetMap() = new(Dict(), Dict(), Dict(), Dict())
 end
