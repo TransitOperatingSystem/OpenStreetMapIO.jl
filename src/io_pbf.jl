@@ -5,10 +5,20 @@ using Dates: unix2datetime, DateTime
 """
     readpbf(filename)
 
-`readpbf` has only one argument `filename`, taking a string of the pbf-file path and name.
-It returns an object containing the OSM data.
+`readpbf` has one mendatory argument `filename`, taking a string of the pbf-file path and name.
+In addion three optional arguments exist.
+This aguments are for node, way, and relation callback functions. This functions are expected to have one input agumemnt
+    of type `Node`, `Way`, or `Relation` and return a value of the same type or of type  Nothing.
+If the return value is `nothing` the element is not added to the `OpenStreetMap` object.
+If the return value is of type `Node`, `Way`, or `Relation` the element is added to the `OpenStreetMap` object.
+If no callback function is given, all elements are added to the `OpenStreetMap` object.
 """
-function readpbf(filename::String)::OpenStreetMap
+function readpbf(
+    filename::String;
+    node_callback::Union{Function,Nothing}=nothing,
+    way_callback::Union{Function,Nothing}=nothing,
+    relation_callback::Union{Function,Nothing}=nothing,
+)::OpenStreetMap
     osmdata = OpenStreetMap()
     open(filename, "r") do f
         blobheader, blob = readnext!(f)
@@ -17,7 +27,13 @@ function readpbf(filename::String)::OpenStreetMap
         while !eof(f)
             blobheader, blob = readnext!(f)
             @assert blobheader.var"#type" == "OSMData"
-            processblock!(osmdata, readblock!(blob, OSMPBF.PrimitiveBlock))
+            processblock!(
+                osmdata,
+                readblock!(blob, OSMPBF.PrimitiveBlock),
+                node_callback,
+                way_callback,
+                relation_callback
+            )
         end
     end
     return osmdata
@@ -67,7 +83,13 @@ function processheader!(osmdata::OpenStreetMap, header::OSMPBF.HeaderBlock)
     end
 end
 
-function processblock!(osmdata::OpenStreetMap, primblock::OSMPBF.PrimitiveBlock)
+function processblock!(
+    osmdata::OpenStreetMap,
+    primblock::OSMPBF.PrimitiveBlock,
+    node_callback::Union{Function,Nothing},
+    way_callback::Union{Function,Nothing},
+    relation_callback::Union{Function,Nothing},
+)
     lookuptable = Base.transcode.(String, primblock.stringtable.s)
     latlonparameter = Dict(
         :lat_offset => primblock.lat_offset,
@@ -76,16 +98,20 @@ function processblock!(osmdata::OpenStreetMap, primblock::OSMPBF.PrimitiveBlock)
     )
     for primgrp in primblock.primitivegroup
         # Possible extension: callback functions for the selecton of specific elements (e.g. for routing).
-        merge!(osmdata.nodes, extractnodes(primgrp, lookuptable))
+        merge!(osmdata.nodes, extractnodes(primgrp, lookuptable, node_callback))
         if hasproperty(primgrp, :dense)
-            merge!(osmdata.nodes, extractdensenodes(primgrp, lookuptable, latlonparameter))
+            merge!(osmdata.nodes, extractdensenodes(primgrp, lookuptable, latlonparameter, node_callback))
         end
-        merge!(osmdata.ways, extractways(primgrp, lookuptable))
-        merge!(osmdata.relations, extractrelations(primgrp, lookuptable))
+        merge!(osmdata.ways, extractways(primgrp, lookuptable, way_callback))
+        merge!(osmdata.relations, extractrelations(primgrp, lookuptable, relation_callback))
     end
 end
 
-function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Node}
+function extractnodes(
+    primgrp::OSMPBF.PrimitiveGroup,
+    lookuptable::Vector{String},
+    node_callback::Union{Function,Nothing}
+)::Dict{Int64,Node}
     nodes = Dict{Int64,Node}()
     for n in primgrp.nodes
         @assert length(n.keys) == length(n.vals)
@@ -94,15 +120,28 @@ function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String
             for (k, v) in zip(n.keys, n.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
-            nodes[n.id] = Node(LatLon(n.lat, n.lon), tags)
+            node = Node(LatLon(n.lat, n.lon), tags)
         else
-            nodes[n.id] = Node(LatLon(n.lat, n.lon), nothing)
+            node = Node(LatLon(n.lat, n.lon), nothing)
+        end
+        if node_callback !== nothing
+            cb_node = node_callback(node)
+            if cb_node !== nothing
+                nodes[n.id] = cb_node
+            end
+        else
+            nodes[n.id] = node
         end
     end
     return nodes
 end
 
-function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)::Dict{Int64,Node}
+function extractdensenodes(
+    primgrp::OSMPBF.PrimitiveGroup,
+    lookuptable::Vector{String},
+    latlonparameter::Dict,
+    node_callback::Union{Function,Nothing},
+)::Dict{Int64,Node}
     if primgrp.dense === nothing
         return Dict{Int64,Node}()
     end
@@ -137,12 +176,24 @@ function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{S
     # assemble Node objects
     nodes = Dict{Int64,Node}()
     for (id, lat, lon) in zip(ids, lats, lons)
-        nodes[id] = Node(LatLon(lat, lon), get(tags, id, nothing))
+        node = Node(LatLon(lat, lon), get(tags, id, nothing))
+        if node_callback !== nothing
+            cb_node = node_callback(node)
+            if cb_node !== nothing
+                nodes[id] = cb_node
+            end
+        else
+            nodes[id] = node
+        end
     end
     return nodes
 end
 
-function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Way}
+function extractways(
+    primgrp::OSMPBF.PrimitiveGroup,
+    lookuptable::Vector{String},
+    way_callback::Union{Function,Nothing},
+)::Dict{Int64,Way}
     ways = Dict{Int64,Way}()
     for w in primgrp.ways
         if length(w.keys) > 0
@@ -150,15 +201,27 @@ function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}
             for (k, v) in zip(w.keys, w.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
-            ways[w.id] = Way(cumsum(w.refs), tags)
+            way = Way(cumsum(w.refs), tags)
         else
-            ways[w.id] = Way(cumsum(w.refs), nothing)
+            way = Way(cumsum(w.refs), nothing)
+        end
+        if way_callback !== nothing
+            cb_way = way_callback(way)
+            if cb_way !== nothing
+                ways[w.id] = cb_way
+            end
+        else
+            ways[w.id] = way
         end
     end
     return ways
 end
 
-function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Relation}
+function extractrelations(
+    primgrp::OSMPBF.PrimitiveGroup,
+    lookuptable::Vector{String},
+    relation_callback::Union{Function,Nothing},
+)::Dict{Int64,Relation}
     relations = Dict{Int64,Relation}()
     for r in primgrp.relations
         if length(r.keys) > 0
@@ -166,9 +229,17 @@ function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{St
             for (k, v) in zip(r.keys, r.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
-            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], tags)
+            relation = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], tags)
         else
-            relations[r.id] = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], nothing)
+            relation = Relation(cumsum(r.memids), membertype.(r.types), lookuptable[r.roles_sid.+1], nothing)
+        end
+        if relation_callback !== nothing
+            cb_relation = relation_callback(r.id, relation)
+            if callback !== nothing
+                relations[r.id] = cb_relation
+            end
+        else
+            relations[r.id] = relation
         end
     end
     return relations
