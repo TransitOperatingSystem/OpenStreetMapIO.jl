@@ -39,7 +39,7 @@ end
 `queryoverpass` has only one argument `bounds`.
 It returns an object containing the OSM data.
 """
-function queryoverpass(bounds::String; timeout::Int64=25)::OpenStreetMap
+function queryoverpass(bounds::String; timeout::Int64 = 25)::OpenStreetMap
     query = """
         [out:xml][timeout:$timeout];
         (
@@ -54,7 +54,7 @@ function queryoverpass(bounds::String; timeout::Int64=25)::OpenStreetMap
     result = request(
         "GET",
         "https://overpass-api.de/api/interpreter",
-        query=Dict("data" => query)
+        query = Dict("data" => query),
     )
     return readxmldoc(EzXML.readxml(IOBuffer(result.body)))
 end
@@ -90,16 +90,16 @@ function osmbound(xmlnode::EzXML.Node)::BBox
         parse(Float64, xmlnode["minlat"]),
         parse(Float64, xmlnode["minlon"]),
         parse(Float64, xmlnode["maxlat"]),
-        parse(Float64, xmlnode["maxlon"])
+        parse(Float64, xmlnode["maxlon"]),
     )
     return bbox
 end
 
-function osmnode(xmlnode::EzXML.Node)::Tuple{Int64,Node}
+function osmnode(xmlnode::EzXML.Node)::Tuple{Int64, Node}
     id = parse(Int64, xmlnode["id"])
     latlon = LatLon(
         parse(Float64, xmlnode["lat"]),
-        parse(Float64, xmlnode["lon"])
+        parse(Float64, xmlnode["lon"]),
     )
     tags = nothing
     if EzXML.haselement(xmlnode)
@@ -108,7 +108,7 @@ function osmnode(xmlnode::EzXML.Node)::Tuple{Int64,Node}
             elname = EzXML.nodename(subxmlnode)
             if elname == "tag"
                 if tags === nothing
-                    tags = Dict{String,String}()
+                    tags = Dict{String, String}()
                 end
                 tags[subxmlnode["k"]] = subxmlnode["v"]
             end
@@ -117,7 +117,7 @@ function osmnode(xmlnode::EzXML.Node)::Tuple{Int64,Node}
     return id, Node(latlon, tags)
 end
 
-function osmway(xmlnode::EzXML.Node)::Tuple{Int64,Way}
+function osmway(xmlnode::EzXML.Node)::Tuple{Int64, Way}
     id = parse(Int64, xmlnode["id"])
     refs = []
     tags = nothing
@@ -129,7 +129,7 @@ function osmway(xmlnode::EzXML.Node)::Tuple{Int64,Way}
                 push!(refs, parse(Int64, subxmlnode["ref"]))
             elseif elname == "tag"
                 if tags === nothing
-                    tags = Dict{String,String}()
+                    tags = Dict{String, String}()
                 end
                 tags[subxmlnode["k"]] = subxmlnode["v"]
             end
@@ -138,7 +138,7 @@ function osmway(xmlnode::EzXML.Node)::Tuple{Int64,Way}
     return id, Way(refs, tags)
 end
 
-function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
+function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64, Relation}
     id = parse(Int64, xmlnode["id"])
     refs = Int64[]
     types = String[]
@@ -154,7 +154,7 @@ function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
                 push!(roles, subxmlnode["role"])
             elseif elname == "tag"
                 if tags === nothing
-                    tags = Dict{String,String}()
+                    tags = Dict{String, String}()
                 end
                 tags[subxmlnode["k"]] = subxmlnode["v"]
             end
@@ -163,8 +163,8 @@ function osmrelation(xmlnode::EzXML.Node)::Tuple{Int64,Relation}
     return id, Relation(refs, types, roles, tags)
 end
 
-function osmunknown(xmlnode::EzXML.Node)::Dict{String,Any}
-    out = Dict{String,Any}()
+function osmunknown(xmlnode::EzXML.Node)::Dict{String, Any}
+    out = Dict{String, Any}()
     for kv in EzXML.attributes(xmlnode)
         out[EzXML.nodename(kv)] = EzXML.nodecontent(kv)
     end

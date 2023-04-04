@@ -8,7 +8,7 @@ using ProtoBuf.EnumX: @enumx
 export var"Relation.MemberType", DenseInfo, StringTable, ChangeSet, HeaderBBox, Info
 export DenseNodes, HeaderBlock, Relation, Node, Way, PrimitiveGroup, PrimitiveBlock
 
-@enumx var"Relation.MemberType" NODE=0 WAY=1 RELATION=2
+@enumx var"Relation.MemberType" NODE = 0 WAY = 1 RELATION = 2
 
 struct DenseInfo
     version::Vector{Int32}
@@ -18,8 +18,15 @@ struct DenseInfo
     user_sid::Vector{Int32}
     visible::Vector{Bool}
 end
-PB.default_values(::Type{DenseInfo}) = (;version = Vector{Int32}(), timestamp = Vector{Int64}(), changeset = Vector{Int64}(), uid = Vector{Int32}(), user_sid = Vector{Int32}(), visible = Vector{Bool}())
-PB.field_numbers(::Type{DenseInfo}) = (;version = 1, timestamp = 2, changeset = 3, uid = 4, user_sid = 5, visible = 6)
+PB.default_values(::Type{DenseInfo}) = (;
+    version = Vector{Int32}(),
+    timestamp = Vector{Int64}(),
+    changeset = Vector{Int64}(),
+    uid = Vector{Int32}(),
+    user_sid = Vector{Int32}(),
+    visible = Vector{Bool}(),
+)
+PB.field_numbers(::Type{DenseInfo}) = (; version = 1, timestamp = 2, changeset = 3, uid = 4, user_sid = 5, visible = 6)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:DenseInfo})
     version = PB.BufferedVector{Int32}()
@@ -73,8 +80,8 @@ end
 struct StringTable
     s::Vector{Vector{UInt8}}
 end
-PB.default_values(::Type{StringTable}) = (;s = Vector{Vector{UInt8}}())
-PB.field_numbers(::Type{StringTable}) = (;s = 1)
+PB.default_values(::Type{StringTable}) = (; s = Vector{Vector{UInt8}}())
+PB.field_numbers(::Type{StringTable}) = (; s = 1)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:StringTable})
     s = PB.BufferedVector{Vector{UInt8}}()
@@ -103,8 +110,8 @@ end
 struct ChangeSet
     id::Int64
 end
-PB.default_values(::Type{ChangeSet}) = (;id = zero(Int64))
-PB.field_numbers(::Type{ChangeSet}) = (;id = 1)
+PB.default_values(::Type{ChangeSet}) = (; id = zero(Int64))
+PB.field_numbers(::Type{ChangeSet}) = (; id = 1)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:ChangeSet})
     id = zero(Int64)
@@ -136,8 +143,9 @@ struct HeaderBBox
     top::Int64
     bottom::Int64
 end
-PB.default_values(::Type{HeaderBBox}) = (;left = zero(Int64), right = zero(Int64), top = zero(Int64), bottom = zero(Int64))
-PB.field_numbers(::Type{HeaderBBox}) = (;left = 1, right = 2, top = 3, bottom = 4)
+PB.default_values(::Type{HeaderBBox}) =
+    (; left = zero(Int64), right = zero(Int64), top = zero(Int64), bottom = zero(Int64))
+PB.field_numbers(::Type{HeaderBBox}) = (; left = 1, right = 2, top = 3, bottom = 4)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:HeaderBBox})
     left = zero(Int64)
@@ -186,8 +194,15 @@ struct Info
     user_sid::UInt32
     visible::Bool
 end
-PB.default_values(::Type{Info}) = (;version = Int32(-1), timestamp = zero(Int64), changeset = zero(Int64), uid = zero(Int32), user_sid = zero(UInt32), visible = false)
-PB.field_numbers(::Type{Info}) = (;version = 1, timestamp = 2, changeset = 3, uid = 4, user_sid = 5, visible = 6)
+PB.default_values(::Type{Info}) = (;
+    version = Int32(-1),
+    timestamp = zero(Int64),
+    changeset = zero(Int64),
+    uid = zero(Int32),
+    user_sid = zero(UInt32),
+    visible = false,
+)
+PB.field_numbers(::Type{Info}) = (; version = 1, timestamp = 2, changeset = 3, uid = 4, user_sid = 5, visible = 6)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:Info})
     version = Int32(-1)
@@ -240,17 +255,23 @@ end
 
 struct DenseNodes
     id::Vector{Int64}
-    denseinfo::Union{Nothing,DenseInfo}
+    denseinfo::Union{Nothing, DenseInfo}
     lat::Vector{Int64}
     lon::Vector{Int64}
     keys_vals::Vector{Int32}
 end
-PB.default_values(::Type{DenseNodes}) = (;id = Vector{Int64}(), denseinfo = nothing, lat = Vector{Int64}(), lon = Vector{Int64}(), keys_vals = Vector{Int32}())
-PB.field_numbers(::Type{DenseNodes}) = (;id = 1, denseinfo = 5, lat = 8, lon = 9, keys_vals = 10)
+PB.default_values(::Type{DenseNodes}) = (;
+    id = Vector{Int64}(),
+    denseinfo = nothing,
+    lat = Vector{Int64}(),
+    lon = Vector{Int64}(),
+    keys_vals = Vector{Int32}(),
+)
+PB.field_numbers(::Type{DenseNodes}) = (; id = 1, denseinfo = 5, lat = 8, lon = 9, keys_vals = 10)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:DenseNodes})
     id = PB.BufferedVector{Int64}()
-    denseinfo = Ref{Union{Nothing,DenseInfo}}(nothing)
+    denseinfo = Ref{Union{Nothing, DenseInfo}}(nothing)
     lat = PB.BufferedVector{Int64}()
     lon = PB.BufferedVector{Int64}()
     keys_vals = PB.BufferedVector{Int32}()
@@ -293,7 +314,7 @@ function PB._encoded_size(x::DenseNodes)
 end
 
 struct HeaderBlock
-    bbox::Union{Nothing,HeaderBBox}
+    bbox::Union{Nothing, HeaderBBox}
     required_features::Vector{String}
     optional_features::Vector{String}
     writingprogram::String
@@ -302,11 +323,29 @@ struct HeaderBlock
     osmosis_replication_sequence_number::Int64
     osmosis_replication_base_url::String
 end
-PB.default_values(::Type{HeaderBlock}) = (;bbox = nothing, required_features = Vector{String}(), optional_features = Vector{String}(), writingprogram = "", source = "", osmosis_replication_timestamp = zero(Int64), osmosis_replication_sequence_number = zero(Int64), osmosis_replication_base_url = "")
-PB.field_numbers(::Type{HeaderBlock}) = (;bbox = 1, required_features = 4, optional_features = 5, writingprogram = 16, source = 17, osmosis_replication_timestamp = 32, osmosis_replication_sequence_number = 33, osmosis_replication_base_url = 34)
+PB.default_values(::Type{HeaderBlock}) = (;
+    bbox = nothing,
+    required_features = Vector{String}(),
+    optional_features = Vector{String}(),
+    writingprogram = "",
+    source = "",
+    osmosis_replication_timestamp = zero(Int64),
+    osmosis_replication_sequence_number = zero(Int64),
+    osmosis_replication_base_url = "",
+)
+PB.field_numbers(::Type{HeaderBlock}) = (;
+    bbox = 1,
+    required_features = 4,
+    optional_features = 5,
+    writingprogram = 16,
+    source = 17,
+    osmosis_replication_timestamp = 32,
+    osmosis_replication_sequence_number = 33,
+    osmosis_replication_base_url = 34,
+)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:HeaderBlock})
-    bbox = Ref{Union{Nothing,HeaderBBox}}(nothing)
+    bbox = Ref{Union{Nothing, HeaderBBox}}(nothing)
     required_features = PB.BufferedVector{String}()
     optional_features = PB.BufferedVector{String}()
     writingprogram = ""
@@ -336,7 +375,16 @@ function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:HeaderBlock})
             PB.skip(d, wire_type)
         end
     end
-    return HeaderBlock(bbox[], required_features[], optional_features[], writingprogram, source, osmosis_replication_timestamp, osmosis_replication_sequence_number, osmosis_replication_base_url)
+    return HeaderBlock(
+        bbox[],
+        required_features[],
+        optional_features[],
+        writingprogram,
+        source,
+        osmosis_replication_timestamp,
+        osmosis_replication_sequence_number,
+        osmosis_replication_base_url,
+    )
 end
 
 function PB.encode(e::PB.AbstractProtoEncoder, x::HeaderBlock)
@@ -358,8 +406,10 @@ function PB._encoded_size(x::HeaderBlock)
     !isempty(x.optional_features) && (encoded_size += PB._encoded_size(x.optional_features, 5))
     !isempty(x.writingprogram) && (encoded_size += PB._encoded_size(x.writingprogram, 16))
     !isempty(x.source) && (encoded_size += PB._encoded_size(x.source, 17))
-    x.osmosis_replication_timestamp != zero(Int64) && (encoded_size += PB._encoded_size(x.osmosis_replication_timestamp, 32))
-    x.osmosis_replication_sequence_number != zero(Int64) && (encoded_size += PB._encoded_size(x.osmosis_replication_sequence_number, 33))
+    x.osmosis_replication_timestamp != zero(Int64) &&
+        (encoded_size += PB._encoded_size(x.osmosis_replication_timestamp, 32))
+    x.osmosis_replication_sequence_number != zero(Int64) &&
+        (encoded_size += PB._encoded_size(x.osmosis_replication_sequence_number, 33))
     !isempty(x.osmosis_replication_base_url) && (encoded_size += PB._encoded_size(x.osmosis_replication_base_url, 34))
     return encoded_size
 end
@@ -368,19 +418,27 @@ struct Relation
     id::Int64
     keys::Vector{UInt32}
     vals::Vector{UInt32}
-    info::Union{Nothing,Info}
+    info::Union{Nothing, Info}
     roles_sid::Vector{Int32}
     memids::Vector{Int64}
     types::Vector{var"Relation.MemberType".T}
 end
-PB.default_values(::Type{Relation}) = (;id = zero(Int64), keys = Vector{UInt32}(), vals = Vector{UInt32}(), info = nothing, roles_sid = Vector{Int32}(), memids = Vector{Int64}(), types = Vector{var"Relation.MemberType".T}())
-PB.field_numbers(::Type{Relation}) = (;id = 1, keys = 2, vals = 3, info = 4, roles_sid = 8, memids = 9, types = 10)
+PB.default_values(::Type{Relation}) = (;
+    id = zero(Int64),
+    keys = Vector{UInt32}(),
+    vals = Vector{UInt32}(),
+    info = nothing,
+    roles_sid = Vector{Int32}(),
+    memids = Vector{Int64}(),
+    types = Vector{var"Relation.MemberType".T}(),
+)
+PB.field_numbers(::Type{Relation}) = (; id = 1, keys = 2, vals = 3, info = 4, roles_sid = 8, memids = 9, types = 10)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:Relation})
     id = zero(Int64)
     keys = PB.BufferedVector{UInt32}()
     vals = PB.BufferedVector{UInt32}()
-    info = Ref{Union{Nothing,Info}}(nothing)
+    info = Ref{Union{Nothing, Info}}(nothing)
     roles_sid = PB.BufferedVector{Int32}()
     memids = PB.BufferedVector{Int64}()
     types = PB.BufferedVector{var"Relation.MemberType".T}()
@@ -434,18 +492,25 @@ struct Node
     id::Int64
     keys::Vector{UInt32}
     vals::Vector{UInt32}
-    info::Union{Nothing,Info}
+    info::Union{Nothing, Info}
     lat::Int64
     lon::Int64
 end
-PB.default_values(::Type{Node}) = (;id = zero(Int64), keys = Vector{UInt32}(), vals = Vector{UInt32}(), info = nothing, lat = zero(Int64), lon = zero(Int64))
-PB.field_numbers(::Type{Node}) = (;id = 1, keys = 2, vals = 3, info = 4, lat = 8, lon = 9)
+PB.default_values(::Type{Node}) = (;
+    id = zero(Int64),
+    keys = Vector{UInt32}(),
+    vals = Vector{UInt32}(),
+    info = nothing,
+    lat = zero(Int64),
+    lon = zero(Int64),
+)
+PB.field_numbers(::Type{Node}) = (; id = 1, keys = 2, vals = 3, info = 4, lat = 8, lon = 9)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:Node})
     id = zero(Int64)
     keys = PB.BufferedVector{UInt32}()
     vals = PB.BufferedVector{UInt32}()
-    info = Ref{Union{Nothing,Info}}(nothing)
+    info = Ref{Union{Nothing, Info}}(nothing)
     lat = zero(Int64)
     lon = zero(Int64)
     while !PB.message_done(d)
@@ -494,17 +559,18 @@ struct Way
     id::Int64
     keys::Vector{UInt32}
     vals::Vector{UInt32}
-    info::Union{Nothing,Info}
+    info::Union{Nothing, Info}
     refs::Vector{Int64}
 end
-PB.default_values(::Type{Way}) = (;id = zero(Int64), keys = Vector{UInt32}(), vals = Vector{UInt32}(), info = nothing, refs = Vector{Int64}())
-PB.field_numbers(::Type{Way}) = (;id = 1, keys = 2, vals = 3, info = 4, refs = 8)
+PB.default_values(::Type{Way}) =
+    (; id = zero(Int64), keys = Vector{UInt32}(), vals = Vector{UInt32}(), info = nothing, refs = Vector{Int64}())
+PB.field_numbers(::Type{Way}) = (; id = 1, keys = 2, vals = 3, info = 4, refs = 8)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:Way})
     id = zero(Int64)
     keys = PB.BufferedVector{UInt32}()
     vals = PB.BufferedVector{UInt32}()
-    info = Ref{Union{Nothing,Info}}(nothing)
+    info = Ref{Union{Nothing, Info}}(nothing)
     refs = PB.BufferedVector{Int64}()
     while !PB.message_done(d)
         field_number, wire_type = PB.decode_tag(d)
@@ -546,17 +612,23 @@ end
 
 struct PrimitiveGroup
     nodes::Vector{Node}
-    dense::Union{Nothing,DenseNodes}
+    dense::Union{Nothing, DenseNodes}
     ways::Vector{Way}
     relations::Vector{Relation}
     changesets::Vector{ChangeSet}
 end
-PB.default_values(::Type{PrimitiveGroup}) = (;nodes = Vector{Node}(), dense = nothing, ways = Vector{Way}(), relations = Vector{Relation}(), changesets = Vector{ChangeSet}())
-PB.field_numbers(::Type{PrimitiveGroup}) = (;nodes = 1, dense = 2, ways = 3, relations = 4, changesets = 5)
+PB.default_values(::Type{PrimitiveGroup}) = (;
+    nodes = Vector{Node}(),
+    dense = nothing,
+    ways = Vector{Way}(),
+    relations = Vector{Relation}(),
+    changesets = Vector{ChangeSet}(),
+)
+PB.field_numbers(::Type{PrimitiveGroup}) = (; nodes = 1, dense = 2, ways = 3, relations = 4, changesets = 5)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:PrimitiveGroup})
     nodes = PB.BufferedVector{Node}()
-    dense = Ref{Union{Nothing,DenseNodes}}(nothing)
+    dense = Ref{Union{Nothing, DenseNodes}}(nothing)
     ways = PB.BufferedVector{Way}()
     relations = PB.BufferedVector{Relation}()
     changesets = PB.BufferedVector{ChangeSet}()
@@ -606,8 +678,16 @@ struct PrimitiveBlock
     lon_offset::Int64
     date_granularity::Int32
 end
-PB.default_values(::Type{PrimitiveBlock}) = (;stringtable, primitivegroup = Vector{PrimitiveGroup}(), granularity = Int32(100), lat_offset = Int64(0), lon_offset = Int64(0), date_granularity = Int32(1000))
-PB.field_numbers(::Type{PrimitiveBlock}) = (;stringtable = 1, primitivegroup = 2, granularity = 17, lat_offset = 19, lon_offset = 20, date_granularity = 18)
+PB.default_values(::Type{PrimitiveBlock}) = (;
+    stringtable,
+    primitivegroup = Vector{PrimitiveGroup}(),
+    granularity = Int32(100),
+    lat_offset = Int64(0),
+    lon_offset = Int64(0),
+    date_granularity = Int32(1000),
+)
+PB.field_numbers(::Type{PrimitiveBlock}) =
+    (; stringtable = 1, primitivegroup = 2, granularity = 17, lat_offset = 19, lon_offset = 20, date_granularity = 18)
 
 function PB.decode(d::PB.AbstractProtoDecoder, ::Type{<:PrimitiveBlock})
     stringtable = Ref{StringTable}()

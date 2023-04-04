@@ -37,7 +37,7 @@ function readblock!(blob::OSMPBF.Blob, block::Union{Type{OSMPBF.HeaderBlock}, Ty
     elseif !isempty(blob.zlib_data)
         decode(
             ProtoDecoder(ZlibDecompressorStream(IOBuffer(blob.zlib_data))),
-            block
+            block,
         )
     else
         DomainError("Unsupported blob data format")
@@ -47,10 +47,10 @@ end
 function processheader!(osmdata::OpenStreetMap, header::OSMPBF.HeaderBlock)
     if hasproperty(header, :bbox)
         osmdata.meta["bbox"] = BBox(
-            round(1e-9 * header.bbox.bottom, digits=7),
-            round(1e-9 * header.bbox.left, digits=7),
-            round(1e-9 * header.bbox.top, digits=7),
-            round(1e-9 * header.bbox.right, digits=7)
+            round(1e-9 * header.bbox.bottom, digits = 7),
+            round(1e-9 * header.bbox.left, digits = 7),
+            round(1e-9 * header.bbox.top, digits = 7),
+            round(1e-9 * header.bbox.right, digits = 7),
         )
     end
     if hasproperty(header, :osmosis_replication_timestamp)
@@ -72,7 +72,7 @@ function processblock!(osmdata::OpenStreetMap, primblock::OSMPBF.PrimitiveBlock)
     latlonparameter = Dict(
         :lat_offset => primblock.lat_offset,
         :lon_offset => primblock.lon_offset,
-        :granularity => primblock.granularity
+        :granularity => primblock.granularity,
     )
     for primgrp in primblock.primitivegroup
         # Possible extension: callback functions for the selecton of specific elements (e.g. for routing).
@@ -85,12 +85,12 @@ function processblock!(osmdata::OpenStreetMap, primblock::OSMPBF.PrimitiveBlock)
     end
 end
 
-function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Node}
-    nodes = Dict{Int64,Node}()
+function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64, Node}
+    nodes = Dict{Int64, Node}()
     for n in primgrp.nodes
         @assert length(n.keys) == length(n.vals)
         if length(n.keys) > 0
-            tags = Dict{String,String}()
+            tags = Dict{String, String}()
             for (k, v) in zip(n.keys, n.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
@@ -102,20 +102,32 @@ function extractnodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String
     return nodes
 end
 
-function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}, latlonparameter::Dict)::Dict{Int64,Node}
+function extractdensenodes(
+    primgrp::OSMPBF.PrimitiveGroup,
+    lookuptable::Vector{String},
+    latlonparameter::Dict,
+)::Dict{Int64, Node}
     if primgrp.dense === nothing
-        return Dict{Int64,Node}()
+        return Dict{Int64, Node}()
     end
     ids = cumsum(primgrp.dense.id)
-    lats = round.(1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat)), digits=7)
-    lons = round.(1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon)), digits=7)
+    lats =
+        round.(
+            1e-9 * (latlonparameter[:lat_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lat)),
+            digits = 7,
+        )
+    lons =
+        round.(
+            1e-9 * (latlonparameter[:lon_offset] .+ latlonparameter[:granularity] .* cumsum(primgrp.dense.lon)),
+            digits = 7,
+        )
     @assert length(ids) == length(lats) == length(lons)
     # extract tags
     @assert primgrp.dense.keys_vals[end] == 0
     # decode tags i: node id index, kv: key-value index, k: key index, v: value index
     i = 1
     kv = 1
-    tags = Dict{Int64,Dict{String,String}}()
+    tags = Dict{Int64, Dict{String, String}}()
     while kv <= length(primgrp.dense.keys_vals)
         k = primgrp.dense.keys_vals[kv]
         if k == 0
@@ -128,25 +140,25 @@ function extractdensenodes(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{S
             v = primgrp.dense.keys_vals[kv+1]
             id = ids[i]
             if !haskey(tags, id)
-                tags[id] = Dict{String,String}()
+                tags[id] = Dict{String, String}()
             end
             tags[id][lookuptable[k+1]] = lookuptable[v+1]
             kv += 2
         end
     end
     # assemble Node objects
-    nodes = Dict{Int64,Node}()
+    nodes = Dict{Int64, Node}()
     for (id, lat, lon) in zip(ids, lats, lons)
         nodes[id] = Node(LatLon(lat, lon), get(tags, id, nothing))
     end
     return nodes
 end
 
-function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Way}
-    ways = Dict{Int64,Way}()
+function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64, Way}
+    ways = Dict{Int64, Way}()
     for w in primgrp.ways
         if length(w.keys) > 0
-            tags = Dict{String,String}()
+            tags = Dict{String, String}()
             for (k, v) in zip(w.keys, w.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
@@ -158,11 +170,11 @@ function extractways(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String}
     return ways
 end
 
-function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64,Relation}
-    relations = Dict{Int64,Relation}()
+function extractrelations(primgrp::OSMPBF.PrimitiveGroup, lookuptable::Vector{String})::Dict{Int64, Relation}
+    relations = Dict{Int64, Relation}()
     for r in primgrp.relations
         if length(r.keys) > 0
-            tags = Dict{String,String}()
+            tags = Dict{String, String}()
             for (k, v) in zip(r.keys, r.vals)
                 tags[lookuptable[k+1]] = lookuptable[v+1]
             end
